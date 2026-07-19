@@ -1,0 +1,6 @@
+{
+  "peak-chess": {
+    "version": "1.1.0",
+    "changelog": "- Introduced a complete ink-and-brass visual redesign for the lobby, HUD, promotion picker, and match results.\n- Added release-ready thumbnail and gameplay imagery.\n- Reworked the README and documentation for the open-source release."
+  }
+}
