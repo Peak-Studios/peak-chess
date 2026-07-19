@@ -55,6 +55,8 @@ function Chess._NewMatch(tableId)
         check = false,
         spectators = {},
         result = nil,
+        turnToken = 0,
+        aiThinking = false,
     }
 end
 
@@ -274,10 +276,17 @@ end
 function Chess.Reset(match)
     local tableId = match.id
     local spectators = match.spectators
+    local formerPlayers = Chess._PlayersInMatch(match)
 
     matches[tableId] = Chess._NewMatch(tableId)
     matches[tableId].spectators = spectators
     Chess.Broadcast(matches[tableId])
+
+    for _, playerId in ipairs(formerPlayers) do
+        if type(playerId) == "number" and not matches[tableId].spectators[playerId] then
+            Chess._SendSelf(matches[tableId], playerId)
+        end
+    end
 end
 
 function Chess.StartAI(playerId, tableId, playerColor, aiLevel, betAmount)
@@ -369,6 +378,8 @@ function Chess.Begin(match)
     match.lastMoves = {}
     match.check = false
     match.result = nil
+    match.turnToken = (match.turnToken or 0) + 1
+    match.aiThinking = false
 
     TriggerEvent("peak-chess:server:matchStarted", {
         id = match.id,
@@ -423,6 +434,8 @@ function Chess.ApplyMove(match, fromSquare, toSquare, promotion)
 
     local nextState, capturedPiece = ChessEngine.apply(match.state, move, promotion)
     match.state = nextState
+    match.turnToken = (match.turnToken or 0) + 1
+    match.aiThinking = false
 
     match.lastMove = {
         from = fromSquare,
@@ -473,6 +486,13 @@ function Chess.MaybeAI(match)
         return
     end
 
+    if match.aiThinking then
+        return
+    end
+
+    match.aiThinking = true
+    local turnToken = match.turnToken or 0
+
     local level = ChessAI.LevelConfig(match.aiLevel)
 
     CreateThread(function()
@@ -490,15 +510,19 @@ function Chess.MaybeAI(match)
             Wait(delay - elapsed)
         end
 
-        if match.status ~= "playing" then
+        if match.status ~= "playing" or match.turnToken ~= turnToken or not match.state
+            or match.state.turn ~= (turnColor == "white" and "w" or "b") then
+            match.aiThinking = false
             return
         end
 
         if not bestMove then
+            match.aiThinking = false
             Chess.End(match, nil, "stalemate")
             return
         end
 
+        match.aiThinking = false
         Chess.ApplyMove(match, bestMove.from, bestMove.to, bestMove.promo)
     end)
 end

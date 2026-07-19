@@ -43,6 +43,8 @@ Config.Models = {
         w = vec3(-0.32, -0.21, 0.002),
         b = vec3( 0.32,  0.21, 0.002),
     },
+    captureRowGap = 0.055,
+    capturePerRow = 5,
 }
 
 Config.Board = {
@@ -112,6 +114,7 @@ Config.Spawn = {
     snapToGround = false,
     zOffset      = 0.0,
     groundProbe  = 8.0,
+    placeChairsOnGround = true,
 }
 
 Config.Locations = {

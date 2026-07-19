@@ -15,7 +15,15 @@ local lastMoveSoundKey = nil
 local lastCheckState = false
 
 function CGame._LoadModel(modelName)
+    if type(modelName) ~= "string" or modelName == "" then
+        return nil
+    end
+
     local modelHash = joaat(modelName)
+    if not IsModelValid(modelHash) or not IsModelInCdimage(modelHash) then
+        return nil
+    end
+
     RequestModel(modelHash)
 
     local timeout = GetGameTimer() + 5000
@@ -23,7 +31,7 @@ function CGame._LoadModel(modelName)
         Wait(0)
     end
 
-    return modelHash
+    return HasModelLoaded(modelHash) and modelHash or nil
 end
 
 function CGame._GroundZ(x, y, z)
@@ -52,13 +60,29 @@ function CGame._SpawnTable(location)
     end
 
     local tableModel = CGame._LoadModel(Config.Models.table)
+    if not tableModel then return nil end
     local tableObject = CreateObject(tableModel, x, y, z, false, false, false)
+    if not tableObject or tableObject == 0 then
+        SetModelAsNoLongerNeeded(tableModel)
+        return nil
+    end
     SetEntityAsMissionEntity(tableObject, true, true)
     SetEntityHeading(tableObject, location.heading)
     FreezeEntityPosition(tableObject, true)
 
     local boardModel = CGame._LoadModel(Config.Models.board)
+    if not boardModel then
+        DeleteEntity(tableObject)
+        SetModelAsNoLongerNeeded(tableModel)
+        return nil
+    end
     local boardObject = CreateObject(boardModel, x, y, z + 1.0, false, false, false)
+    if not boardObject or boardObject == 0 then
+        DeleteEntity(tableObject)
+        SetModelAsNoLongerNeeded(tableModel)
+        SetModelAsNoLongerNeeded(boardModel)
+        return nil
+    end
     SetEntityAsMissionEntity(boardObject, true, true)
     SetEntityCollision(boardObject, false, false)
     AttachEntityToEntity(
@@ -80,12 +104,30 @@ function CGame._SpawnTable(location)
     )
 
     local chairModel = CGame._LoadModel(Config.Models.chair)
+    if not chairModel then
+        DeleteEntity(boardObject)
+        DeleteEntity(tableObject)
+        SetModelAsNoLongerNeeded(tableModel)
+        SetModelAsNoLongerNeeded(boardModel)
+        return nil
+    end
     local chairs = {}
 
     for color, seat in pairs(Config.Seats) do
         local chairZ = chairHeightDebugOverride or seat.offset.z
         local chairCoords = GetOffsetFromEntityInWorldCoords(tableObject, seat.offset.x, seat.offset.y, chairZ)
+        if Config.Spawn.placeChairsOnGround ~= false then
+            chairCoords = vector3(chairCoords.x, chairCoords.y, CGame._GroundZ(chairCoords.x, chairCoords.y, chairCoords.z))
+        end
         local chairObject = CreateObject(chairModel, chairCoords.x, chairCoords.y, chairCoords.z, false, false, false)
+        if not chairObject or chairObject == 0 then
+            DeleteEntity(boardObject)
+            DeleteEntity(tableObject)
+            SetModelAsNoLongerNeeded(tableModel)
+            SetModelAsNoLongerNeeded(boardModel)
+            SetModelAsNoLongerNeeded(chairModel)
+            return nil
+        end
 
         SetEntityAsMissionEntity(chairObject, true, true)
         SetEntityCollision(chairObject, false, false)
@@ -178,6 +220,13 @@ function CGame._SitAtTable(tableId, color)
 
     local pedOffset, pedHeading = CGame._SitOffset()
     local ped = PlayerPedId()
+    if not CGame.previousPedState then
+        CGame.previousPedState = {
+            coords = GetEntityCoords(ped),
+            heading = GetEntityHeading(ped),
+            frozen = IsEntityPositionFrozen(ped),
+        }
+    end
 
     RequestAnimDict(Config.Anim.dict)
     local timeout = GetGameTimer() + 3000
@@ -206,14 +255,16 @@ end
 
 function CGame._StandUp()
     local ped = PlayerPedId()
+    local previous = CGame.previousPedState
     DetachEntity(ped, true, true)
-    FreezeEntityPosition(ped, false)
-
-    local coords = GetEntityCoords(ped)
-    local foundGround, groundZ = GetGroundZFor_3dCoord(coords.x, coords.y, coords.z + 1.0, false)
-    if foundGround then
-        SetEntityCoords(ped, coords.x, coords.y, groundZ, false, false, false, false)
+    if previous and previous.coords then
+        SetEntityCoordsNoOffset(ped, previous.coords.x, previous.coords.y, previous.coords.z, false, false, false)
+        SetEntityHeading(ped, previous.heading or 0.0)
+        FreezeEntityPosition(ped, previous.frozen or false)
+    else
+        FreezeEntityPosition(ped, false)
     end
+    CGame.previousPedState = nil
 
     local getUpAnim = Config.Anim.getUp
     if getUpAnim and getUpAnim.dict and getUpAnim.clip then
@@ -499,6 +550,7 @@ CreateThread(function()
 end)
 
 RegisterNetEvent("peak-chess:self", function(data)
+    local wasSeated = CGame.seated
     CGame.current = data.id
     CGame.color = data.color
     CGame.seated = data.color ~= nil
@@ -508,6 +560,10 @@ RegisterNetEvent("peak-chess:self", function(data)
 
     if CGame.seated then
         CGame._SitAtTable(data.id, data.color)
+    elseif wasSeated then
+        CreateThread(function()
+            CGame._StandUp()
+        end)
     end
 
     NUI.OnSelf(data)
@@ -721,7 +777,11 @@ AddEventHandler("onResourceStop", function(resourceName)
         Raycast.StopCam()
     end
 
-    CGame._ClearPed()
+    if CGame.seated then
+        CGame._StandUp()
+    else
+        CGame._ClearPed()
+    end
     Framework.Target.RemoveAll()
 
     for tableId, tableData in pairs(CGame.tables) do

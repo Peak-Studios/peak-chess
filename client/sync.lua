@@ -3,6 +3,7 @@ Sync = {}
 local boardPieces = {}
 local capturedPieces = {}
 local aiPeds = {}
+local aiPedColors = {}
 local dragState = nil
 local INITIAL_PIECES = {
     w = { p = 8, r = 2, n = 2, b = 2, q = 1, k = 1 },
@@ -11,7 +12,15 @@ local INITIAL_PIECES = {
 local CAPTURE_ORDER = { "q", "r", "b", "n", "p" }
 
 function Sync._LoadModel(modelName)
+    if type(modelName) ~= "string" or modelName == "" then
+        return nil
+    end
+
     local modelHash = joaat(modelName)
+    if not IsModelValid(modelHash) or not IsModelInCdimage(modelHash) then
+        return nil
+    end
+
     RequestModel(modelHash)
 
     local timeout = GetGameTimer() + 5000
@@ -19,7 +28,7 @@ function Sync._LoadModel(modelName)
         Wait(0)
     end
 
-    return modelHash
+    return HasModelLoaded(modelHash) and modelHash or nil
 end
 
 function Sync.SquareLocal(square)
@@ -64,8 +73,16 @@ function Sync._CreateAttachedPiece(boardEntity, offset, pieceCode)
     end
 
     local modelHash = Sync._LoadModel(modelName)
+    if not modelHash then
+        return nil
+    end
     local boardCoords = GetEntityCoords(boardEntity)
     local pieceEntity = CreateObject(modelHash, boardCoords.x, boardCoords.y, boardCoords.z + 1.0, false, false, false)
+
+    if not pieceEntity or pieceEntity == 0 then
+        SetModelAsNoLongerNeeded(modelHash)
+        return nil
+    end
 
     SetEntityAsMissionEntity(pieceEntity, true, true)
     SetEntityCollision(pieceEntity, false, false)
@@ -139,9 +156,13 @@ function Sync._RenderCaptured(tableId, boardEntity, board)
             local missing = initialCounts[pieceType] - (currentCounts[color][pieceType] or 0)
 
             for _ = 1, missing do
+                local perRow = Config.Models.capturePerRow or 5
+                local row = math.floor(placed / perRow)
+                local column = placed % perRow
+                local inward = color == "w" and 1.0 or -1.0
                 local offset = vector3(
-                    trayStart.x,
-                    trayStart.y + placed * (Config.Board.captureGap or 0.055),
+                    trayStart.x + inward * row * (Config.Models.captureRowGap or 0.055),
+                    trayStart.y + column * (Config.Board.captureGap or 0.055),
                     trayStart.z
                 )
                 local entity = Sync._CreateAttachedPiece(boardEntity, offset, color .. pieceType)
@@ -201,14 +222,21 @@ function Sync._SyncAI(tableId, snapshot)
         return
     end
 
+    if aiPeds[tableId] and aiPedColors[tableId] ~= aiColor then
+        Sync._DeleteEntity(aiPeds[tableId])
+        aiPeds[tableId] = nil
+    end
+
     if not aiPeds[tableId] or not DoesEntityExist(aiPeds[tableId]) then
         aiPeds[tableId] = Sync._SpawnAIPed(tableId, aiColor)
+        aiPedColors[tableId] = aiPeds[tableId] and aiColor or nil
     end
 end
 
 function Sync.ClearAI(tableId)
     Sync._DeleteEntity(aiPeds[tableId])
     aiPeds[tableId] = nil
+    aiPedColors[tableId] = nil
 end
 
 function Sync.Apply(tableId, snapshot)
@@ -224,7 +252,7 @@ function Sync.Apply(tableId, snapshot)
 
     for square, pieceData in pairs(boardPieces[tableId]) do
         local nextCode = Sync._PieceCode(board[square])
-        if not nextCode or nextCode ~= pieceData.code then
+        if not nextCode or nextCode ~= pieceData.code or not DoesEntityExist(pieceData.entity) then
             Sync._DeleteEntity(pieceData.entity)
             boardPieces[tableId][square] = nil
         end
@@ -233,10 +261,10 @@ function Sync.Apply(tableId, snapshot)
     for square, piece in pairs(board) do
         local pieceCode = Sync._PieceCode(piece)
         if pieceCode and not boardPieces[tableId][square] then
-            boardPieces[tableId][square] = {
-                code = pieceCode,
-                entity = Sync._CreateAttachedPiece(boardEntity, Sync.SquareLocal(square), pieceCode),
-            }
+            local entity = Sync._CreateAttachedPiece(boardEntity, Sync.SquareLocal(square), pieceCode)
+            if entity then
+                boardPieces[tableId][square] = { code = pieceCode, entity = entity }
+            end
         end
     end
 
