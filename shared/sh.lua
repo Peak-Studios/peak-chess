@@ -142,7 +142,7 @@ Config.Interact = {
 }
 
 Config.Target = {
-    -- 'drawtext' has no dependency. Use 'auto', 'ox_target', 'qb-target', or 'var-interact' for optional target integrations.
+    -- 'drawtext' has no dependency. Use 'auto', 'ox_target', or 'qb-target' for optional target integrations.
     system           = 'drawtext',
     key              = 38,
     showDistance     = 12.0,

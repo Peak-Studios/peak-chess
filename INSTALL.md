@@ -42,7 +42,7 @@ ensure your_bzzz_chess_prop_pack
 ensure peak-chess
 ```
 
-Optional target resources such as `ox_target`, `qb-target`, and `var-interact` should start before `peak-chess` when used.
+Optional target resources such as `ox_target` and `qb-target` should start before `peak-chess` when used.
 
 ## 4. Configure Framework Mode
 
@@ -94,7 +94,6 @@ Optional values:
 - `auto`
 - `ox_target`
 - `qb-target`
-- `var-interact`
 
 If the configured target resource is missing, use `drawtext` or `auto`.
 

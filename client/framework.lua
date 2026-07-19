@@ -74,16 +74,9 @@ local specs = {}
 local registered = {}
 local suspended = false
 
-local function varInteractResource()
-    if GetResourceState("Var-Interact") == "started" then return "Var-Interact" end
-    if GetResourceState("var-interact") == "started" then return "var-interact" end
-    return nil
-end
-
 function Framework.Target._System()
     local configured = (Config.Target and Config.Target.system) or "drawtext"
     if configured == "qb_target" then configured = "qb-target" end
-    if configured == "var_interact" or configured == "Var-Interact" then configured = "var-interact" end
 
     if configured ~= "auto" then
         return configured
@@ -91,7 +84,6 @@ function Framework.Target._System()
 
     if GetResourceState("ox_target") == "started" then return "ox_target" end
     if GetResourceState("qb-target") == "started" then return "qb-target" end
-    if varInteractResource() then return "var-interact" end
 
     return "drawtext"
 end
@@ -108,25 +100,7 @@ function Framework.Target._CreatePoint(id)
     local position = vec3(spec.coords.x, spec.coords.y, spec.coords.z + (target.heightOffset or 0.0))
     local system = Framework.Target._System()
 
-    if system == "var-interact" then
-        local resourceName = varInteractResource()
-        if not resourceName then return end
-
-        local ok, handle = pcall(function()
-            return exports[resourceName]:interactCreate({
-                coords      = position,
-                message     = Shared.L("target_label"),
-                key         = target.key or 38,
-                showIcon    = target.showDistance or 12.0,
-                canInteract = target.interactDistance or 2.0,
-                hintIcon    = target.icon or "game",
-                hintColor   = target.color or "#60d796",
-                onInteract  = function() spec.onSelect() end,
-            })
-        end)
-
-        if ok then registered[id] = handle end
-    elseif system == "ox_target" then
+    if system == "ox_target" then
         if GetResourceState("ox_target") ~= "started" then return end
 
         local ok, handle = pcall(function()
@@ -174,12 +148,7 @@ function Framework.Target._DestroyPoint(id)
 
     local system = Framework.Target._System()
 
-    if system == "var-interact" then
-        local resourceName = varInteractResource()
-        if resourceName then
-            pcall(function() exports[resourceName]:interactRemove(handle) end)
-        end
-    elseif system == "ox_target" and GetResourceState("ox_target") == "started" then
+    if system == "ox_target" and GetResourceState("ox_target") == "started" then
         pcall(function() exports.ox_target:removeZone(handle) end)
     elseif system == "qb-target" and GetResourceState("qb-target") == "started" then
         pcall(function() exports["qb-target"]:RemoveZone(handle) end)

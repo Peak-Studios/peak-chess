@@ -54,7 +54,6 @@ Install and ensure the `bzzz_chess` prop pack before `peak-chess`. The config ex
 - `auto`: detect a supported optional target
 - `ox_target`
 - `qb-target`
-- `var-interact`
 
 Use `drawtext` for the most portable setup.
 

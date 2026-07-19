@@ -31,7 +31,7 @@ Full hosted documentation is available at [peakrp.net/docs/peak-chess](https://p
 - Modern React/Vite NUI for the lobby, match HUD, promotion picker, and result state
 - Standalone operation with no mandatory framework, target system, database, or bridge
 - Optional `peak-bridge`, ESX, QBCore, and Qbox integrations
-- Optional `ox_target`, `qb-target`, and `var-interact` support
+- Optional `ox_target` and `qb-target` support
 - Dependency-free draw-text interaction available by default
 - Configurable tables, camera, seating, models, controls, sounds, markers, spotlights, AI profiles, and locale
 - English and French locales included
@@ -78,7 +78,7 @@ Config.Locations = {
     { coords = vec3(-1319.881348, -925.411011, 10.19995), heading = 104.881889, blip = true },
 }
 
-Config.Target.system = 'drawtext' -- auto, ox_target, qb-target, or var-interact
+Config.Target.system = 'drawtext' -- auto, ox_target, or qb-target
 
 Config.Betting = {
     enabled  = true,
@@ -98,7 +98,7 @@ Standalone servers can always play zero-wager chess. Non-zero wagers are exposed
 | Category | Supported options |
 | --- | --- |
 | Framework / money | Standalone, `peak-bridge`, ESX, QBCore, Qbox |
-| Interaction | Draw text, `ox_target`, `qb-target`, `var-interact` |
+| Interaction | Draw text, `ox_target`, `qb-target` |
 | UI | React 19 + Vite, bundled locally for FiveM NUI |
 | Persistence | None required; matches are live server state |
 

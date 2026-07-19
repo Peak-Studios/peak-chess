@@ -15,7 +15,7 @@ Analyze my server resources, identify optional integrations, configure the scrip
 **Step 1: Discovery Phase**
 - Scan my server resource folder and determine whether `peak-bridge` is installed and started.
 - Identify whether ESX, QBCore, or Qbox is active.
-- Identify the interaction system in use: drawtext, `ox_target`, `qb-target`, `var-interact`, or another custom option.
+- Identify the interaction system in use: drawtext, `ox_target`, or `qb-target`.
 - Confirm that the `bzzz_chess` prop pack is installed and started before `peak-chess`.
 - Identify the server's preferred money account name if wagers are enabled.
 
